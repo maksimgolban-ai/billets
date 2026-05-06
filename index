@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<title>Себестоимость слитка — корректные единицы измерения</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+:root{
+  --bg:#0d1b2e;
+  --surf:#122040;
+  --surf2:#192d50;
+  --border:#1e3a5f;
+  --acc:#6ab0f5;
+  --acc2:#fbbf24;
+  --grn:#4ade80;
+  --red:#f87171;
+  --txt:#e2eaf6;
+  --txt2:#94afd1;
+  --txt3:#4d6d9a;
+  --mono:'IBM Plex Mono',monospace;
+  --sans:'Aptos','Segoe UI',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--txt);font-size:14px;min-height:100vh}
+
+.hdr{background:var(--surf);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.35);flex-wrap:wrap}
+.brand{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--acc);letter-spacing:.06em;padding:15px 24px 15px 0;border-right:1px solid var(--border);margin-right:20px;white-space:nowrap}
+.tab{font-size:14px;font-weight:500;padding:15px 20px;border:none;background:none;color:var(--txt2);cursor:pointer;border-bottom:2px solid transparent;transition:.15s}
+.tab:hover{color:var(--txt)}
+.tab.on{color:var(--acc);border-bottom-color:var(--acc)}
+
+.pg{display:none;padding:24px;max-width:1600px;margin:0 auto}
+.pg.on{display:block}
+
+.card{background:var(--surf);border:1px solid var(--border);border-radius:14px;padding:20px 22px;margin-bottom:18px;box-shadow:0 2px 16px rgba(0,0,0,.2)}
+.ctitle{font-size:11px;font-weight:600;color:var(--txt3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:14px}
+
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+.kpi{background:var(--surf);border:1px solid var(--border);border-radius:14px;padding:18px 20px;position:relative;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.18)}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:14px 14px 0 0}
+.kpi.bl::before{background:var(--acc)}.kpi.or::before{background:var(--acc2)}
+.kpi.gn::before{background:var(--grn)}.kpi.rd::before{background:var(--red)}
+.kpi-lbl{font-size:12px;color:var(--txt2);margin-bottom:6px;line-height:1.3}
+.kpi-val{font-family:var(--mono);font-size:22px;font-weight:600;line-height:1}
+.kpi.bl .kpi-val{color:var(--acc)}.kpi.or .kpi-val{color:var(--acc2)}
+.kpi.gn .kpi-val{color:var(--grn)}.kpi.rd .kpi-val{color:var(--red)}
+.kpi-sub{font-size:11px;color:var(--txt3);margin-top:5px;font-family:var(--mono)}
+.kpi-sub strong{color:var(--acc2); font-size:14px; font-weight:600}
+
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media (max-width: 1000px) { .g2 { grid-template-columns: 1fr; } }
+
+.pgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.prow{display:flex;align-items:center;gap:8px;padding:8px 11px;background:var(--surf2);border-radius:8px;border:1px solid var(--border)}
+.plbl{font-size:13px;color:var(--txt2);flex:1;min-width:0;line-height:1.3}
+.pinp{font-family:var(--mono);font-size:13px;font-weight:600;background:#fffde7;color:#1a1200;border:1.5px solid #f5a623;border-radius:5px;padding:4px 8px;width:92px;text-align:right;outline:none;transition:.15s}
+.pinp:focus{border-color:var(--acc)}
+.punit{font-size:11px;color:var(--txt3);font-family:var(--mono);min-width:38px}
+.psel{font-family:var(--mono);font-size:12px;font-weight:600;background:#fffde7;color:#1a1200;border:1.5px solid #f5a623;border-radius:5px;padding:4px 8px;outline:none;cursor:pointer}
+
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{font-size:11px;font-weight:600;color:var(--txt3);text-transform:uppercase;letter-spacing:.07em;padding:8px 11px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
+.tbl th.r,.tbl td.r{text-align:right}
+.tbl td{padding:8px 11px;border-bottom:1px solid rgba(30,58,95,.6);color:var(--txt)}
+.tbl tr:hover td{background:rgba(106,176,245,.05)}
+.tbl .mn{font-family:var(--mono)}
+.tbl .sec td{color:var(--acc);font-weight:600;font-size:12px;background:rgba(106,176,245,.06);padding-top:11px}
+.tbl .tot td{color:var(--acc2);font-weight:700;font-family:var(--mono);border-top:1px solid var(--border);border-bottom:none}
+.tbl .minus{color:var(--red) !important}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+
+.chart-container {
+  position: relative;
+  width: 100%;
+  min-height: 480px;
+  height: auto;
+  background: rgba(18, 32, 64, 0.4);
+  border-radius: 20px;
+  padding: 12px;
+  overflow: visible;
+}
+.chart-wrapper {
+  position: relative;
+  width: 100%;
+  height: auto;
+  min-height: 460px;
+  overflow: visible;
+}
+canvas#pieC {
+  display: block;
+  width: 100% !important;
+  height: auto !important;
+  max-height: 520px;
+}
+
+.brow{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(30,58,95,.5)}
+.blbl{font-size:13px;color:var(--txt2);flex:1}
+.bbar-w{flex:2;background:var(--surf2);border-radius:3px;height:6px;overflow:hidden}
+.bbar{height:100%;border-radius:3px}
+.bval{font-family:var(--mono);font-size:12px;min-width:76px;text-align:right}
+.bpct{font-family:var(--mono);font-size:11px;color:var(--txt3);min-width:44px;text-align:right}
+.sh{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--txt3);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="brand">⬡ СЕБЕСТОИМОСТЬ СЛИТКА</div>
+  <button class="tab on"  onclick="showTab('model',this)">📊 Модель</button>
+  <button class="tab"     onclick="showTab('extra',this)">⚙️ Доп. параметры и расчёты</button>
+  <button class="tab"     onclick="showTab('detail',this)">📋 Подробно</button>
+</div>
+
+<!-- СТРАНИЦА 1: МОДЕЛЬ -->
+<div class="pg on" id="pg-model">
+  <div id="kpi-row" class="kpi-row"></div>
+  <div class="g2">
+    <div>
+      <div class="card">
+        <div class="ctitle">Параметры <span style="color:var(--acc2)">● редактируемые</span></div>
+        <div id="p-main"></div>
+      </div>
+      <div class="card">
+        <div class="ctitle">Процессинг, руб/кг слитка</div>
+        <table class="tbl" id="proc-tbl"></table>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="height:100%; display: flex; flex-direction: column; overflow: visible;">
+        <div class="ctitle">Структура себестоимости процессинга (интерактивная)</div>
+        <div class="chart-container">
+          <div class="chart-wrapper">
+            <canvas id="pieC"></canvas>
+          </div>
+        </div>
+        <div style="margin-top: 12px; font-size: 11px; text-align: center; color: var(--txt3);">
+          💡 Наведите на сектор для деталей | Выноски адаптивны
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- СТРАНИЦА 2 -->
+<div class="pg" id="pg-extra">
+  <div class="g2">
+    <div>
+      <div class="card"><div class="ctitle">Дополнительные параметры</div><div class="pgrid" id="p-extra"></div></div>
+      <div class="card"><div class="ctitle">Прямые затраты, руб/кг</div><div class="pgrid" id="p-direct"></div></div>
+    </div>
+    <div><div class="card"><div class="ctitle">Материальный баланс плавки</div><div id="balance"></div></div></div>
+  </div>
+  <div class="card"><div class="ctitle">Состав завалки и расчёт стоимости</div><table class="tbl" id="shihta-tbl"></table></div>
+</div>
+
+<!-- СТРАНИЦА 3 -->
+<div class="pg" id="pg-detail">
+  <div class="sh">Прямой расчёт себестоимости</div>
+  <div class="card"><table class="tbl" id="direct-tbl"></table></div>
+  <div class="sh">Факторный расчёт (процессинг)</div>
+  <div class="card"><table class="tbl" id="factor-tbl"><table></div>
+  <div class="sh">Расчёт цены шлака</div>
+  <div class="g2"><div class="card"><div class="ctitle">Отправка шлака на переработку</div><table class="tbl" id="slag-exp"></table></div>
+  <div class="card"><div class="ctitle">Возврат чушкой</div><table class="tbl" id="slag-inc"></table></div></div>
+</div>
+
+<script>
+// ------------------------------ ПАРАМЕТРЫ (единицы измерения исправлены) ------------------------------
+const P = {
+  C1: 270,        // Цена на лом (руб/кг)
+  C2: 310,        // Цена чушки РУСАЛ (руб/кг)
+  F7: 115,        // Цена стружки (руб/кг)
+  F1: 14700,      // Завалка общая (кг)
+  C3: 3000,       // Завалка первички (кг)
+  F2: 0.83,       // Выход годного (доля)
+  F3: 0.054,      // Выход шлака (доля)
+  F4: 0.004,      // Угар (доля)
+  H44: 0.0015,    // Доля лигатуры
+  H45: 0.002,     // Доля флюсов
+  H49: 0.001,     // Доля стружки
+  H50: 0.059,     // Доля обрези слитков
+  F44: 300,       // Цена лигатуры (руб/кг)
+  F45: 190,       // Цена флюсов (руб/кг)
+  F8: 0.5,        // Выход чушки из шлака (доля)
+  F9: 22.9508,    // Переработка шлака (руб/кг) =28/1.22
+  G52: 3.5,       // ФОТ производства (руб/кг)
+  G53: 2.3,       // Энергоносители (руб/кг)
+  G54: 0.8,       // Расходники (руб/кг)
+  G61: 4.7,       // Косвенные расходы (руб/кг)
+  возвраты_да: true,
+};
+
+let pieChart = null;
+
+// ------------------------------ РАСЧЁТ ------------------------------
+function calc() {
+  const p = P;
+  const F9 = p.F9;
+  const цена_шлака = (p.C1 - F9) * p.F8;
+  const F11 = p.F1 * p.F2;
+  const H42 = p.C3 / F11;
+  const C41 = p.F1;
+  const C42 = p.C3;
+  const C44 = p.F1 * p.H44;
+  const C45 = p.F1 * p.H45;
+  const H43 = 1 - H42 - p.H44 - p.H45;
+  const C43 = C41 - C42 - C44 - C45;
+  const E42 = p.C2 * C42;
+  const E43 = p.C1 * C43;
+  const E44 = p.F44 * C44;
+  const E45 = p.F45 * C45;
+  const H41 = (E42 + E43) / (C42 + C43);
+  const V1 = p.возвраты_да ? 0 : 1;
+  const цена_возврата = H41 * V1 + p.C1 * (1 - V1);
+  const H47 = p.F3;
+  const H49 = p.H49;
+  const H50 = p.H50;
+  const H51 = p.F4;
+  const H48 = 1 - H47 - H49 - H50 - H51 - p.F2;
+  const C47 = -p.F1 * H47;
+  const C48 = -H48 * p.F1;
+  const C49 = -p.F1 * H49;
+  const C50 = -H50 * p.F1;
+  const C51 = -H51 * p.F1;
+  const F47 = цена_шлака;
+  const F48 = цена_возврата;
+  const F49 = p.F7;
+  const F50 = цена_возврата;
+  const E47 = C47 * F47;
+  const E48 = C48 * F48;
+  const E49 = C49 * F49;
+  const E50 = C50 * F50;
+  const C40 = C41 + C47 + C48 + C49 + C50 + C51;
+  const E40 = E42 + E43 + E44 + E45 + E47 + E48 + E49 + E50;
+  const E52 = p.G52 * C40;
+  const E53 = p.G53 * C40;
+  const E54 = p.G54 * C40;
+  const E60 = E52 + E53 + E54 + E40;
+  const E61 = p.G61 * C40;
+  const E62 = E60 + E61;
+  const G62 = E62 / C40;
+  const G40 = E40 / C40;
+  const G42 = E42 / C40;
+  const G43 = E43 / C40;
+  const G44 = E44 / C40;
+  const G45 = E45 / C40;
+  const G47 = E47 / C40;
+  const G48 = E48 / C40;
+  const G49 = E49 / C40;
+  const G50 = E50 / C40;
+  const C69 = C40;
+  const F69 = H41;
+  const E69 = C69 * F69;
+  const E67 = E40;
+  const E70 = E67 - E69;
+  const E72 = E44;
+  const E73 = E45;
+  const F75 = F69 - F49;
+  const C75 = -C49;
+  const E75 = F75 * C75;
+  const F76 = p.C1;
+  const C76 = -C51;
+  const E76 = F76 * C76;
+  const E74 = E70 - E73 - E72 - E76 - E75;
+  const G72 = E72 / C69;
+  const G73 = E73 / C69;
+  const G74 = E74 / C69;
+  const G75 = E75 / C69;
+  const G76 = E76 / C40;
+  const G78 = p.G54;
+  const G79 = p.G53;
+  const G80 = p.G52;
+  const G82 = G72 + G73 + G74 + G75 + G76 + G78 + G79 + G80;
+  return {
+    сс_кг: G62, цена_шихты: H41, слиток_кг: C40, процессинг: G82, цена_шлака, цена_возврата,
+    C40, C42, C43, C44, C45, C47, C48, C49, C50, C51, C75, C76,
+    E40, E42, E43, E44, E45, E47, E48, E49, E50, E52, E53, E54, E61, E62,
+    G40, G42, G43, G44, G45, G47, G48, G49, G50, G72, G73, G74, G75, G76, G78, G79, G80, G82,
+    H41, H42, H47, H48, H49: p.H49, H50: p.H50, H51, F1: p.F1, F8: p.F8,
+  };
+}
+
+const f2 = v => (typeof v === 'number') ? v.toFixed(2) : String(v);
+const fN = v => (typeof v === 'number') ? Math.round(v).toLocaleString('ru') : String(v);
+const fP1 = v => (typeof v === 'number') ? (v * 100).toFixed(1) + '%' : String(v);
+
+function renderKPI(r) {
+  const ndsValue = r.сс_кг * 1.22;
+  document.getElementById('kpi-row').innerHTML = `
+    <div class="kpi or">
+      <div class="kpi-lbl">Себестоимость 1 кг слитка (без НДС)</div>
+      <div class="kpi-val">${f2(r.сс_кг)} <span style="font-size:13px">руб</span></div>
+      <div class="kpi-sub">💰 с НДС 22%: <strong>${f2(ndsValue)} руб/кг</strong></div>
+    </div>
+    <div class="kpi bl"><div class="kpi-lbl">Цена шихты (средняя, первичка+лом)</div><div class="kpi-val">${f2(r.цена_шихты)} <span style="font-size:13px">руб</span></div><div class="kpi-sub">доля первички: ${fP1(r.H42)}</div></div>
+    <div class="kpi rd"><div class="kpi-lbl">Процессинг (все статьи)</div><div class="kpi-val">${f2(r.процессинг)} <span style="font-size:14px">руб/кг</span></div><div class="kpi-sub">косвенные: ${f2(P.G61)} руб/кг · цена шлака: ${f2(r.цена_шлака)}</div></div>
+    <div class="kpi gn"><div class="kpi-lbl">Слиток годный из одной плавки</div><div class="kpi-val">${fN(r.слиток_кг)} <span style="font-size:14px">кг</span></div><div class="kpi-sub">завалка: ${fN(P.F1)} кг · выход: ${fP1(P.F2)}</div></div>`;
+}
+
+function renderProcTable(r) {
+  const items = [['Шлак', r.G74], ['ФОТ производства', r.G80], ['Энергоносители', r.G79], ['Расходники', r.G78], ['Угар', r.G76], ['Лигатура', r.G72], ['Флюсы', r.G73], ['Стружка', r.G75]];
+  const t = document.getElementById('proc-tbl');
+  t.innerHTML = `<thead><tr><th>Статья</th><th class="r">Руб/кг</th><th class="r">Доля</th></tr></thead><tbody>
+    ${items.map(([n, v]) => `<tr><td><span class="dot" style="background:#3a86ff"></span>${n}</td><td class="r mn">${f2(v)}</td><td class="r mn">${fP1(v / r.G82)}</td>`).join('')}
+    <tr class="tot"><td>Итого процессинг</td><td class="r">${f2(r.G82)}</td><td class="r">100%</td></tr>
+    <tr class="tot"><td>+ Косвенные расходы</td><td class="r">${f2(P.G61)}</td><td class="r">—</td></tr>
+    <tr class="tot"><td>🏷 Себестоимость кг слитка</td><td class="r" style="color:var(--acc2)">${f2(r.сс_кг)}</td><td class="r">—</td></tr>
+  </tbody>`;
+}
+
+function renderBalance(r) {
+  const вход = [['Лом алюминиевый', r.C43, r.C43/P.F1], ['Первичка (чушка)', r.C42, r.C42/P.F1], ['Лигатура', r.C44, r.C44/P.F1], ['Флюсы', r.C45, r.C45/P.F1]];
+  const выход = [['→ Слиток годный', r.C40, r.C40/P.F1], ['→ Шлак (−)', -r.C47, -r.C47/P.F1], ['→ Обрезь (−)', -r.C50, -r.C50/P.F1], ['→ Возврат лит. (−)', -r.C48, -r.C48/P.F1], ['→ Стружка (−)', -r.C49, -r.C49/P.F1], ['→ Угар (−)', -r.C51, -r.C51/P.F1]];
+  const bar = arr => arr.map(([lbl, кг, pct]) => `<div class="brow"><span class="blbl">${lbl}</span><div class="bbar-w"><div class="bbar" style="width:${Math.min(100, pct * 100)}%;background:var(--acc)"></div></div><span class="bval">${fN(кг)} кг</span><span class="bpct">${fP1(pct)}</span></div>`).join('');
+  document.getElementById('balance').innerHTML = `<div><div class="ctitle">Вход (завалка ${fN(P.F1)} кг)</div>${bar(вход)}</div><div><div class="ctitle">Выход</div>${bar(выход)}</div>`;
+}
+
+function renderShihta(r) {
+  const rows = [{lbl:'Первичка (чушка РУСАЛ)',кг:r.C42,цена:P.C2,сум:r.E42,гкг:r.G42},{lbl:'Лом алюминиевый',кг:r.C43,цена:P.C1,сум:r.E43,гкг:r.G43},{lbl:'Лигатура',кг:r.C44,цена:P.F44,сум:r.E44,гкг:r.G44},{lbl:'Флюсы',кг:r.C45,цена:P.F45,сум:r.E45,гкг:r.G45}];
+  const отх = [{lbl:`Шлак (−, цена ${f2(r.цена_шлака)} руб/кг)`,кг:r.C47,сум:r.E47,гкг:r.G47},{lbl:`Возврат после литья (−, цена ${f2(r.цена_возврата)})`,кг:r.C48,сум:r.E48,гкг:r.G48},{lbl:'Стружка алюм. (−)',кг:r.C49,сум:r.E49,гкг:r.G49},{lbl:'Обрезь слитков (−)',кг:r.C50,сум:r.E50,гкг:r.G50}];
+  const t = document.getElementById('shihta-tbl');
+  t.innerHTML = `<thead><tr><th>Материал</th><th class="r">Кол-во, кг</th><th class="r">Цена, руб/кг</th><th class="r">Сумма, руб</th><th class="r">Руб/кг сл.</th></tr></thead><tbody>
+    <tr class="sec"><td colspan="5">Завалка (материалы)</td></tr>
+    ${rows.map(o => `<tr><td>${o.lbl}</td><td class="r mn">${fN(o.кг)}</td><td class="r mn">${f2(o.цена)}</td><td class="r mn">${fN(o.сум)}</td><td class="r mn">${f2(o.гкг)}</td></tr>`).join('')}
+    <tr class="sec"><td colspan="5">Возвратные отходы (вычитаются)</td></tr>
+    ${отх.map(o => `<tr><td class="minus">${o.lbl}</td><td class="r mn minus">${fN(o.кг)}</td><td class="r mn">${f2(o.цена||r.цена_шлака)}</td><td class="r mn minus">${fN(o.сум)}</td><td class="r mn minus">${f2(o.гкг)}</td></tr>`).join('')}
+    <tr class="tot"><td colspan="4">Шихта чистая (без НДС)</td><td class="r">${f2(r.G40)}</td></tr>
+  </tbody>`;
+}
+
+function renderDirect(r){
+  document.getElementById('direct-tbl').innerHTML = `<thead><tr><th>Статья</th><th class="r">Кол-во, кг</th><th class="r">Сумма, руб</th><th class="r">Руб/кг сл.</th></tr></thead><tbody>
+    <tr class="sec"><td colspan="4">Сырьё и материалы</td></tr><tr><td>&nbsp;&nbsp;Первичка</td><td class="r mn">${fN(r.C42)}</td><td class="r mn">${fN(r.E42)}</td><td class="r mn">${f2(r.G42)}</td></tr>
+    <tr><td>&nbsp;&nbsp;Лом</td><td class="r mn">${fN(r.C43)}</td><td class="r mn">${fN(r.E43)}</td><td class="r mn">${f2(r.G43)}</td></tr>
+    <tr class="sec"><td colspan="4">ФОТ производства</td></tr><tr><td>&nbsp;&nbsp;ФОТ</td><td class="r mn">${fN(r.C40)}</td><td class="r mn">${fN(r.E52)}</td><td class="r mn">${f2(P.G52)}</td></tr>
+    <tr class="sec"><td colspan="4">Энергоносители</td></tr><tr><td>&nbsp;&nbsp;Энергия</td><td class="r mn">${fN(r.C40)}</td><td class="r mn">${fN(r.E53)}</td><td class="r mn">${f2(P.G53)}</td></tr>
+    <tr class="sec"><td colspan="4">Расходные материалы</td></tr><tr><td>&nbsp;&nbsp;Расходники</td><td class="r mn">${fN(r.C40)}</td><td class="r mn">${fN(r.E54)}</td><td class="r mn">${f2(P.G54)}</td></tr>
+    <tr class="sec"><td colspan="4">Косвенные расходы</td></tr><tr><td>&nbsp;&nbsp;Косвенные</td><td class="r mn">${fN(r.C40)}</td><td class="r mn">${fN(r.E61)}</td><td class="r mn">${f2(P.G61)}</td></tr>
+    <tr class="tot"><td>ИТОГО 1 кг слитка</td><td class="r">${fN(r.C40)}</td><td class="r">${fN(r.E62)}</td><td class="r">${f2(r.сс_кг)}</td></tr>
+  </tbody>`;
+}
+
+function renderFactor(r) {
+  const rows = [['Лигатура', r.C44, r.G72], ['Флюсы', r.C45, r.G73], ['Шлак', -r.C47, r.G74], ['Стружка', r.C75, r.G75], ['Угар', r.C76, r.G76], ['Расходники', '—', r.G78], ['Энергоносители', '—', r.G79], ['ФОТ', '—', r.G80]];
+  document.getElementById('factor-tbl').innerHTML = `<thead><tr><th>Затрата</th><th class="r">Кол-во, кг</th><th class="r">Руб/кг сл.</th><th class="r">Доля</th></tr></thead><tbody>
+    ${rows.map(([n, кг, гкг]) => `<tr><td>${n}</td><td class="r mn">${typeof кг === 'number' ? fN(кг) : кг}</td><td class="r mn">${f2(гкг)}</td><td class="r mn">${fP1(гкг / r.G82)}</td></tr>`).join('')}
+    <tr class="tot"><td>Итого процессинг</td><td class="r">—</td><td class="r">${f2(r.G82)}</td><td class="r">100%</td></tr>
+  </tbody>`;
+}
+
+function renderSlag(r) {
+  const шлак_кг = 10000; const чушка_кг = шлак_кг * P.F8;
+  const перераб = чушка_кг * P.F9; const расход_итого = шлак_кг * r.цена_шлака + перераб;
+  document.getElementById('slag-exp').innerHTML = `<thead><tr><th>Номенклатура</th><th class="r">Кол-во, кг</th><th class="r">Сумма, руб</th></tr></thead><tbody>
+    <tr><td>Шлак</td><td class="r mn">${fN(шлак_кг)}</td><td class="r mn">${fN(шлак_кг*r.цена_шлака)}</td></tr>
+    <tr><td>Услуга переработки (=28/1.22)</td><td class="r mn">${fN(чушка_кг)}</td><td class="r mn">${fN(перераб)}</td></tr>
+    <tr class="tot"><td>Итого расходов</td><td class="r">${fN(расход_итого)}</td><td class="r">${f2(расход_итого/шлак_кг)} руб/кг шлака</td></tr>
+  </tbody>`;
+  document.getElementById('slag-inc').innerHTML = `<thead><tr><th>Номенклатура</th><th class="r">Кол-во, кг</th><th class="r">Сумма, руб</th></tr></thead><tbody>
+    <tr><td>Чушка АД 31 (выход ${fP1(P.F8)})</td><td class="r mn">${fN(чушка_кг)}</td><td class="r mn">${fN(чушка_кг * P.C1)}</td></tr>
+    <tr class="tot"><td>Расчётная цена шлака</td><td class="r">${f2(r.цена_шлака)} руб/кг</td><td class="r">—</td></tr>
+  </tbody>`;
+}
+
+// ------------------------------ КРУГОВАЯ ДИАГРАММА ------------------------------
+function renderPie(r) {
+  const labels = ['Шлак', 'ФОТ', 'Энергоносители', 'Расходники', 'Угар', 'Лигатура', 'Флюсы', 'Стружка'];
+  const data = [r.G74, r.G80, r.G79, r.G78, r.G76, r.G72, r.G73, r.G75];
+  const total = data.reduce((s,v)=>s+v,0);
+  const colors = ['#3a86ff', '#f4a261', '#2a9d8f', '#e9c46a', '#e76f51', '#a7c957', '#cdb4db', '#ffb3ba'];
+  
+  if (pieChart) pieChart.destroy();
+  const canvas = document.getElementById('pieC');
+  const ctx = canvas.getContext('2d');
+  
+  const smartLeaderPlugin = {
+    id: 'smartLeaderLines',
+    afterDraw(chart) {
+      const {ctx, chartArea: {width, height}} = chart;
+      const meta = chart.getDatasetMeta(0);
+      if (!meta.data || meta.data.length === 0) return;
+      const cx = meta.data[0].x;
+      const cy = meta.data[0].y;
+      const radiusOuter = meta.data[0].outerRadius;
+      const lineStart = radiusOuter + 12;
+      const lineEnd = radiusOuter + 44;
+      
+      ctx.save();
+      ctx.font = '500 11px "IBM Plex Mono", monospace';
+      ctx.fillStyle = '#f0f4fa';
+      ctx.shadowBlur = 0;
+      
+      let anchors = [];
+      for (let i = 0; i < meta.data.length; i++) {
+        if (data[i] <= 0.001) continue;
+        const arc = meta.data[i];
+        const mid = (arc.startAngle + arc.endAngle) / 2;
+        const cos = Math.cos(mid);
+        const sin = Math.sin(mid);
+        const x1 = cx + cos * lineStart;
+        const y1 = cy + sin * lineStart;
+        const x2base = cx + cos * lineEnd;
+        const y2base = cy + sin * lineEnd;
+        const side = cos > 0 ? 'right' : 'left';
+        const offsetX = side === 'right' ? 22 : -22;
+        const x2 = x2base + offsetX;
+        let y2 = y2base;
+        anchors.push({ i, side, x1, y1, x2, y2, label: labels[i], val: data[i], baseY: y2 });
+      }
+      for (let iter = 0; iter < 3; iter++) {
+        for (let a = 0; a < anchors.length; a++) {
+          for (let b = a+1; b < anchors.length; b++) {
+            if (Math.abs(anchors[a].y2 - anchors[b].y2) < 24 && anchors[a].side === anchors[b].side) {
+              if (anchors[a].y2 < anchors[b].y2) anchors[a].y2 = Math.max(28, anchors[a].y2 - 14);
+              else anchors[a].y2 = Math.min(height - 35, anchors[a].y2 + 14);
+            }
+          }
+        }
+      }
+      for (let a of anchors) {
+        ctx.beginPath();
+        ctx.moveTo(a.x1, a.y1);
+        ctx.lineTo(a.x2, a.y2);
+        ctx.strokeStyle = 'rgba(200,220,255,0.8)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(a.x1, a.y1, 3, 0, 2*Math.PI);
+        ctx.fillStyle = '#ffd966';
+        ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        const percent = (a.val/total)*100;
+        const text = `${a.label}: ${f2(a.val)} руб/кг (${percent.toFixed(1)}%)`;
+        ctx.textAlign = a.side === 'right' ? 'left' : 'right';
+        ctx.fillText(text, a.x2 + (a.side === 'right' ? 6 : -6), a.y2 + 4);
+      }
+      ctx.restore();
+    }
+  };
+  
+  pieChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: '#0d1b2e', hoverOffset: 12, cutout: '58%' }] },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      layout: { padding: { top: 25, bottom: 25, left: 25, right: 25 } },
+      plugins: {
+        legend: { display: false },
+        tooltip: { backgroundColor: '#0a1a2c', titleColor: '#fff', bodyColor: '#ccc', callbacks: { label: (ctx) => ` ${ctx.label}: ${f2(ctx.raw)} руб/кг (${((ctx.raw/total)*100).toFixed(1)}%)` } }
+      }
+    },
+    plugins: [smartLeaderPlugin]
+  });
+}
+
+// ------------------------------ ОТРИСОВКА ПАРАМЕТРОВ С ПРАВИЛЬНЫМИ ЕДИНИЦАМИ ------------------------------
+function renderParams(){
+  // Основные параметры (единицы: руб/кг для цен, кг для масс, % для долей)
+  const main = [
+    {key:'C1', lbl:'Цена на лом', unit:'руб/кг'},
+    {key:'C2', lbl:'Цена чушки РУСАЛ', unit:'руб/кг'},
+    {key:'C3', lbl:'Завалка первички', unit:'кг', isMass: true},
+    {key:'F1', lbl:'Завалка общая', unit:'кг', isMass: true},
+    {key:'F2', lbl:'Выход годного', unit:'%', isPct: true},
+    {key:'F3', lbl:'Выход шлака', unit:'%', isPct: true},
+    {key:'F4', lbl:'Угар', unit:'%', isPct: true},
+    {key:'F8', lbl:'Выход чушки из шлака', unit:'%', isPct: true}
+  ];
+  
+  const extra = [
+    {key:'F7', lbl:'Цена стружки', unit:'руб/кг'},
+    {key:'F44', lbl:'Цена лигатуры', unit:'руб/кг'},
+    {key:'F45', lbl:'Цена флюсов', unit:'руб/кг'},
+    {key:'H44', lbl:'Доля лигатуры', unit:'%', isPct: true},
+    {key:'H45', lbl:'Доля флюсов', unit:'%', isPct: true},
+    {key:'H49', lbl:'Доля стружки', unit:'%', isPct: true},
+    {key:'H50', lbl:'Доля обрези слитков', unit:'%', isPct: true}
+  ];
+  
+  const direct = [
+    {key:'G52', lbl:'ФОТ производства', unit:'руб/кг'},
+    {key:'G53', lbl:'Энергоносители', unit:'руб/кг'},
+    {key:'G54', lbl:'Расходники', unit:'руб/кг'},
+    {key:'G61', lbl:'Косвенные расходы', unit:'руб/кг'},
+    {key:'F9', lbl:'Переработка шлака', unit:'руб/кг'}
+  ];
+  
+  const makeRow = ({key, lbl, unit, isPct, isMass}) => {
+    let rawVal = P[key];
+    let displayVal = isPct ? rawVal * 100 : rawVal;
+    let step = (isPct || isMass) ? 'any' : 'any';
+    let inputType = 'number';
+    return `<div class="prow">
+      <span class="plbl">${lbl}</span>
+      <input class="pinp" type="${inputType}" step="${step}" value="${displayVal}" data-key="${key}" data-pct="${!!isPct}" data-mass="${!!isMass}" onchange="onParam(this)">
+      <span class="punit">${unit}</span>
+    </div>`;
+  };
+  
+  document.getElementById('p-main').innerHTML = '<div class="pgrid">' + main.map(makeRow).join('') + '</div>';
+  document.getElementById('p-extra').innerHTML = extra.map(makeRow).join('') + 
+    `<div class="prow"><span class="plbl">Возвраты по цене</span>
+    <select class="psel" onchange="P.возвраты_да=this.value==='lom';refresh()">
+      <option value="lom" ${P.возвраты_да?'selected':''}>Лом (фикс)</option>
+      <option value="shihta" ${!P.возвраты_да?'selected':''}>Шихта</option>
+    </select>
+    <span class="punit"></span></div>`;
+  document.getElementById('p-direct').innerHTML = direct.map(makeRow).join('');
+}
+
+function onParam(el){
+  const key = el.dataset.key;
+  let val = parseFloat(el.value) || 0;
+  if(el.dataset.pct === 'true') val = val / 100;
+  P[key] = val;
+  refresh();
+}
+
+function refresh(){
+  const r = calc();
+  renderKPI(r); renderPie(r); renderProcTable(r); renderBalance(r); renderShihta(r); renderDirect(r); renderFactor(r); renderSlag(r);
+}
+
+function showTab(name, btn){
+  document.querySelectorAll('.pg').forEach(p=>p.classList.remove('on')); 
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
+  document.getElementById('pg-'+name).classList.add('on'); 
+  btn.classList.add('on');
+  if(name === 'model') setTimeout(()=>{ if(pieChart) { pieChart.update(); } }, 80);
+}
+
+renderParams();
+refresh();
+</script>
+</body>
+</html>
